@@ -1,0 +1,1 @@
+# Grupo18_Zehnder_Crispin_IA_2026
