@@ -28,6 +28,13 @@ POSIBLES_EQUIPACIONES = (
     "percusion"
 )
 
+def CombinacionTaladroValida(taladro,muestras_igneas,muestras_sedimentarias):
+    if taladro == "termico" and len(muestras_igneas) > 0:
+        return True
+    if taladro == "percusion" and len(muestras_sedimentarias) > 0:
+        return True
+    return False
+
 class RoverProblem(SearchProblem):
     #pensar estado.
     #(posicionrover(X,Y), bateria int,taladroactivo string ,cargaactual int ,muestrasigneas [(X1, Y1), (X2, Y2), (Xn, Yn)], muestrassedimentarias [(X1, Y1), (X2, Y2), (Xn, Yn)])
@@ -52,24 +59,26 @@ class RoverProblem(SearchProblem):
                 nueva_posicion = (posicion_rover[0] + move[0], posicion_rover[1] + move[1])
                 acciones_validas.append(("sobremarcha", nueva_posicion))
         
-        for equip in POSIBLES_EQUIPACIONES:
-            if taladro_activo != equip and bateria_actual - COSTO_BATERIA["equipar"] > 0:
-                acciones_validas.append(("equipar", equip))
+        if bateria_actual - COSTO_BATERIA["equipar"] > 0:
+            for equip in POSIBLES_EQUIPACIONES:
+                if taladro_activo != equip and CombinacionTaladroValida(equip, muestras_igneas, muestras_sedimentarias):
+                    acciones_validas.append(("equipar", equip))
         
-        if taladro_activo == "termico":
-            if posicion_rover in muestras_igneas and carga_actual < CAP_MAX_CARGA and bateria_actual - COSTO_BATERIA["recolectar"] > 0:
+
+        if bateria_actual - COSTO_BATERIA["recolectar"] > 0 and carga_actual < CAP_MAX_CARGA:
+            if taladro_activo == "termico" and posicion_rover in muestras_igneas:
                 acciones_validas.append(("recolectar", "ignea"))
-        elif taladro_activo == "percusion":
-            if posicion_rover in muestras_sedimentarias and carga_actual < CAP_MAX_CARGA and bateria_actual - COSTO_BATERIA["recolectar"] > 0:
+            elif taladro_activo == "percusion" and posicion_rover in muestras_sedimentarias:
                 acciones_validas.append(("recolectar", "sedimentaria"))
         
-        if carga_actual == CAP_MAX_CARGA and bateria_actual - COSTO_BATERIA["depositar"] > 0:
-            acciones_validas.append(("depositar", None))
+        if bateria_actual - COSTO_BATERIA["depositar"]:
+            if carga_actual == CAP_MAX_CARGA:
+                acciones_validas.append(("depositar", None))
 
-        if carga_actual == 1 and len(muestras_igneas) == 0 and len(muestras_sedimentarias) == 0 and bateria_actual - COSTO_BATERIA["depositar"] > 0:
-            acciones_validas.append(("depositar", None))
+            if carga_actual == 1 and len(muestras_igneas) == 0 and len(muestras_sedimentarias) == 0:
+                acciones_validas.append(("depositar", None))
 
-        if posicion_rover not in ZONA_SOMBRA:
+        if bateria_actual < MAX_BATERIA and posicion_rover not in ZONA_SOMBRA:
             acciones_validas.append(("recargar", None))
 
         return acciones_validas
