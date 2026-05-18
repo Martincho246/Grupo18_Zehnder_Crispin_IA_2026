@@ -35,6 +35,29 @@ def CombinacionTaladroValida(taladro,muestras_igneas,muestras_sedimentarias):
         return True
     return False
 
+def DistanciaARecorrerPorEje(posicion_rover,lista_muestras):
+    lista_resultado = []
+    # [0] diferencia más grande en el ancho (eje x) de los puntos de interes
+    # [1] distancia del rover al borde mas cercano en el eje x
+    # [2] diferencia más grande en el alto (eje y) de los puntos de interes 
+    # [3] distancia del rover al borde mas cercano en el eje y
+    for i in range(2):
+        minima_coordenada_eje = posicion_rover[i]
+        maxima_coordenada_eje = posicion_rover[i]
+        for muestra in lista_muestras:
+            if muestra[i] > maxima_coordenada_eje:
+                maxima_coordenada_eje = muestra[i]
+            if muestra[i] < minima_coordenada_eje:
+                minima_coordenada_eje = muestra[i]
+        lista_resultado.append(abs(maxima_coordenada_eje - minima_coordenada_eje))
+        diferencia_rover_izquierda = abs(posicion_rover[i] - minima_coordenada_eje)
+        diferencia_rover_derecha = abs(posicion_rover[i] - maxima_coordenada_eje)
+        if diferencia_rover_izquierda <= diferencia_rover_derecha:
+            lista_resultado.append(diferencia_rover_izquierda)
+        else:
+            lista_resultado.append(diferencia_rover_derecha)
+    return lista_resultado
+
 class RoverProblem(SearchProblem):
     #pensar estado.
     #(posicionrover(X,Y), bateria int,taladroactivo string ,cargaactual int ,muestrasigneas [(X1, Y1), (X2, Y2), (Xn, Yn)], muestrassedimentarias [(X1, Y1), (X2, Y2), (Xn, Yn)])
@@ -133,53 +156,51 @@ class RoverProblem(SearchProblem):
         bateria_actual = state [1]
         taladro_activo = state [2]
         carga_actual = state[3]
-        muestras_igneas = state[4]
-        muestras_sedimentarias = state[5]
+        muestras_igneas = list(state[4])
+        muestras_sedimentarias = list(state[5])
         #por cada muestra en el piso el costo de buscarla seria la distancia manhattan entre 2(la sobremarcha) + costo de cambiar el taladro si amerita.
-        costo_unitario_max = 0
-        costo_bateria_local = 0
-
-        for muestra in muestras_igneas:
-            costo_muestra = 0
-            costo_bateria_muestra = 0
-            if taladro_activo != "termico":
-                costo_muestra += COSTO_MINUTOS["equipar"]
-                costo_bateria_muestra += COSTO_BATERIA["equipar"]
-            
-            distance = abs(muestra[0] - posicion_rover[0]) + abs(muestra[1] - posicion_rover[1])
-            costo_muestra += (distance/2) * COSTO_MINUTOS["sobremarcha"]
-            costo_bateria_muestra += (distance) * COSTO_BATERIA["moverse"]
-            
-            if costo_muestra > costo_unitario_max:
-                costo_bateria_local = costo_bateria_muestra
-                costo_unitario_max = costo_muestra
-            
-        for muestra in muestras_sedimentarias:
-            costo_muestra = 0
-            costo_bateria_muestra = 0
-            if taladro_activo != "percusion":
-                costo_muestra += COSTO_MINUTOS["equipar"]
-                costo_bateria_muestra += COSTO_BATERIA["equipar"]
-            
-            distance = abs(muestra[0] - posicion_rover[0]) + abs(muestra[1] - posicion_rover[1])
-            costo_muestra += (distance/2) * COSTO_MINUTOS["sobremarcha"]
-            costo_bateria_muestra += (distance) * COSTO_BATERIA["moverse"]
-            
-            if costo_muestra > costo_unitario_max:
-                costo_bateria_local = costo_bateria_muestra
-                costo_unitario_max = costo_muestra
         
-        #para todos (carga actual + cantida de muestras en el piso)/2 * costo de deposito. recolectar al menos una vez por cada cosa en el piso.
+        costo = 0
+        costo_bateria = 0
+
+        # Por equipaciones
+        for equip in POSIBLES_EQUIPACIONES:
+            if equip != taladro_activo and CombinacionTaladroValida(equip,muestras_igneas,muestras_sedimentarias):
+                costo += COSTO_MINUTOS["equipar"]
+                costo_bateria += COSTO_BATERIA["equipar"]
+
+        # Por moverse, considerando el movimiento más rápido (2 casillas por minuto), de la manera más barata (1 unidad de energia por casilla)
+        lista_muestras = muestras_igneas+muestras_sedimentarias
+        lista_resultado_movimiento = DistanciaARecorrerPorEje(posicion_rover,lista_muestras)
+        
+        distancia = 0
+        cantidad_distancias_impares = 0
+        for distance in lista_resultado_movimiento:
+            distancia += distance
+            if distance % 2 != 0:
+                cantidad_distancias_impares += 1
+        
+        # Se suman los impares porque es como si tuviera que hacer un movimiento completo más en vez de solo la mitad al dividir entre dos
+        # No se suma los impares en el costo bateria porque no se "recorren"
+        costo += (distancia + cantidad_distancias_impares) / 2 * COSTO_MINUTOS["sobremarcha"]
+        costo_bateria += distancia * COSTO_BATERIA["moverse"]
+
+        # Por recolectar
         cantidad_muestras = len(muestras_igneas) + len(muestras_sedimentarias)
-        costo_bateria = cantidad_muestras * COSTO_BATERIA["recolectar"] + ((carga_actual + cantidad_muestras)/2 ) * COSTO_BATERIA["depositar"]
-        costo_global = (carga_actual + cantidad_muestras ) * COSTO_MINUTOS["depositar"] + cantidad_muestras * COSTO_MINUTOS["recolectar"]
-        bateria_actual = bateria_actual - costo_bateria - costo_bateria_local
+        costo += cantidad_muestras * COSTO_MINUTOS["recolectar"]
+        costo_bateria += cantidad_muestras * COSTO_BATERIA["recolectar"]
 
-        while bateria_actual < 0:
-            bateria_actual = bateria_actual - COSTO_BATERIA["recargar"]
-            costo_global += COSTO_MINUTOS["recargar"]
+        # Por depositar en el suelo. Tarda 1 minuto por muestra y gasta 1 de energia por cada vez que deposita (deposita con 2 muestras o cuando tiene una y no quedan en el suelo)
+        cantidad_a_depositar = cantidad_muestras + carga_actual
+        costo += cantidad_a_depositar * COSTO_MINUTOS["depositar"]
+        costo_bateria += (cantidad_a_depositar +1) // 2 * COSTO_BATERIA["depositar"]
+
+        bateria_resultante = bateria_actual - costo_bateria
+        while(bateria_resultante < 0):
+            costo += COSTO_MINUTOS["recargar"]
+            bateria_resultante -= COSTO_BATERIA["recargar"]
         
-        return costo_global + costo_unitario_max
+        return costo
 
 def planear_rover(rover_inicio, bateria_inicial, zonas_sombra, muestras_igneas, muestras_sedimentarias):
     estadoInicial = (rover_inicio, bateria_inicial, "ninguno", 0, tuple(muestras_igneas), tuple(muestras_sedimentarias))
