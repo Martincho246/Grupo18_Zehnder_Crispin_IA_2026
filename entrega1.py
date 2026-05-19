@@ -98,13 +98,13 @@ class RoverProblem(SearchProblem):
         if bateria_actual - COSTO_BATERIA["moverse"] > 0:
             for move in POSIBLES_MOVIMIENTOS:
                 nueva_posicion = (posicion_rover[0] + move[0], posicion_rover[1] + move[1])
-                if nueva_posicion[0] >= MIN_X and nueva_posicion[0] <= MAX_X and nueva_posicion[1] >= MIN_Y and nueva_posicion[0] <= MAX_Y:
+                if nueva_posicion[0] >= MIN_X and nueva_posicion[0] <= MAX_X and nueva_posicion[1] >= MIN_Y and nueva_posicion[1] <= MAX_Y:
                     acciones_validas.append(("moverse", nueva_posicion))
         
         if bateria_actual - COSTO_BATERIA["sobremarcha"] > 0:
             for move in POSIBLES_SOBREMARCHAS:
                 nueva_posicion = (posicion_rover[0] + move[0], posicion_rover[1] + move[1])
-                if nueva_posicion[0] >= MIN_X and nueva_posicion[0] <= MAX_X and nueva_posicion[1] >= MIN_Y and nueva_posicion[0] <= MAX_Y:
+                if nueva_posicion[0] >= MIN_X and nueva_posicion[0] <= MAX_X and nueva_posicion[1] >= MIN_Y and nueva_posicion[1] <= MAX_Y:
                     acciones_validas.append(("sobremarcha", nueva_posicion))
         
         if bateria_actual - COSTO_BATERIA["equipar"] > 0:
