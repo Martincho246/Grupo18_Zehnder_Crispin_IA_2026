@@ -58,6 +58,29 @@ def DistanciaARecorrerPorEje(posicion_rover,lista_muestras):
             lista_resultado.append(diferencia_rover_derecha)
     return lista_resultado
 
+def MinimosMaximosPorEje(lista_objetos):
+    
+    min_x, max_x, min_y, max_y = 0,0,0,0
+    primero = True
+    for elemento in lista_objetos:
+        if primero:
+            min_x = elemento[0]
+            max_x = elemento[0]
+            min_y = elemento[1]
+            max_y = elemento[1]
+            primero = False
+            continue
+        if elemento[0] > max_x:
+            max_x = elemento[0]
+        if elemento[0] < min_x:
+            min_x = elemento[0]
+        if elemento[1] > max_y:
+            max_y = elemento[1]
+        if elemento[1] < min_y:
+            min_y = elemento[1]
+
+    return min_x,max_x,min_y,max_y
+
 class RoverProblem(SearchProblem):
     #pensar estado.
     #(posicionrover(X,Y), bateria int,taladroactivo string ,cargaactual int ,muestrasigneas [(X1, Y1), (X2, Y2), (Xn, Yn)], muestrassedimentarias [(X1, Y1), (X2, Y2), (Xn, Yn)])
@@ -75,12 +98,14 @@ class RoverProblem(SearchProblem):
         if bateria_actual - COSTO_BATERIA["moverse"] > 0:
             for move in POSIBLES_MOVIMIENTOS:
                 nueva_posicion = (posicion_rover[0] + move[0], posicion_rover[1] + move[1])
-                acciones_validas.append(("moverse", nueva_posicion))
+                if nueva_posicion[0] >= MIN_X and nueva_posicion[0] <= MAX_X and nueva_posicion[1] >= MIN_Y and nueva_posicion[0] <= MAX_Y:
+                    acciones_validas.append(("moverse", nueva_posicion))
         
         if bateria_actual - COSTO_BATERIA["sobremarcha"] > 0:
             for move in POSIBLES_SOBREMARCHAS:
                 nueva_posicion = (posicion_rover[0] + move[0], posicion_rover[1] + move[1])
-                acciones_validas.append(("sobremarcha", nueva_posicion))
+                if nueva_posicion[0] >= MIN_X and nueva_posicion[0] <= MAX_X and nueva_posicion[1] >= MIN_Y and nueva_posicion[0] <= MAX_Y:
+                    acciones_validas.append(("sobremarcha", nueva_posicion))
         
         if bateria_actual - COSTO_BATERIA["equipar"] > 0:
             for equip in POSIBLES_EQUIPACIONES:
@@ -205,9 +230,19 @@ class RoverProblem(SearchProblem):
 def planear_rover(rover_inicio, bateria_inicial, zonas_sombra, muestras_igneas, muestras_sedimentarias):
     estadoInicial = (rover_inicio, bateria_inicial, "ninguno", 0, tuple(muestras_igneas), tuple(muestras_sedimentarias))
     
-    global ZONA_SOMBRA
+    global ZONA_SOMBRA, MIN_X, MAX_X, MIN_Y, MAX_Y
     ZONA_SOMBRA = zonas_sombra
-
+    lista_objetos = list(rover_inicio) + list(zonas_sombra) + list(muestras_igneas) + list(muestras_sedimentarias)
+    min_x, max_x,min_y,max_y = MinimosMaximosPorEje(lista_objetos)
+    if(len(zonas_sombra) > 0):
+        min_x -= 1
+        min_y -= 1
+        max_x += 1
+        max_y += 1
+    MIN_X = min_x
+    MAX_X = max_x
+    MIN_Y = min_y
+    MAX_Y = max_y
     problema = RoverProblem(estadoInicial)
     resultado = astar(problema)
     return [accion for accion, estado in resultado.path()[1:]]
