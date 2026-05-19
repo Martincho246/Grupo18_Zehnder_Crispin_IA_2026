@@ -232,7 +232,7 @@ def planear_rover(rover_inicio, bateria_inicial, zonas_sombra, muestras_igneas, 
     
     global ZONA_SOMBRA, MIN_X, MAX_X, MIN_Y, MAX_Y
     ZONA_SOMBRA = zonas_sombra
-    lista_objetos = [rover_inicio] + zonas_sombra + muestras_igneas + muestras_sedimentarias
+    lista_objetos = [rover_inicio] + list(zonas_sombra) + list(muestras_igneas) + list(muestras_sedimentarias)
     min_x, max_x,min_y,max_y = MinimosMaximosPorEje(lista_objetos)
     if(len(zonas_sombra) > 0):
         min_x -= 1
