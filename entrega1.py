@@ -3,8 +3,6 @@ from simpleai.search import SearchProblem, astar
 
 MAX_BATERIA = 20
 
-ZONA_SOMBRA = []
-
 CAP_MAX_CARGA = 2
 
 COSTO_BATERIA = {"moverse": 1, "sobremarcha": 4, "equipar": 1, "recolectar": 3, "depositar": 1, "recargar": -10}
@@ -59,7 +57,6 @@ def DistanciaARecorrerPorEje(posicion_rover,lista_muestras):
     return lista_resultado
 
 def MinimosMaximosPorEje(lista_objetos):
-    
     min_x, max_x, min_y, max_y = 0,0,0,0
     primero = True
     for elemento in lista_objetos:
@@ -92,23 +89,32 @@ class RoverProblem(SearchProblem):
         carga_actual = state[3]
         muestras_igneas = state[4]
         muestras_sedimentarias = state[5]
-
+        lista_muestras = list(muestras_igneas) + list(muestras_sedimentarias)
         acciones_validas = []
 
-        if bateria_actual - COSTO_BATERIA["moverse"] > 0:
+        # Solo se puede mover si tiene batería y no lleva toda su carga, o si tiene batería y está en una zona sombra, aplica igual para sobremarcha.
+        if bateria_actual - COSTO_BATERIA["moverse"] > 0 and (carga_actual < CAP_MAX_CARGA or posicion_rover in ZONA_SOMBRA):
             for move in POSIBLES_MOVIMIENTOS:
                 nueva_posicion = (posicion_rover[0] + move[0], posicion_rover[1] + move[1])
-                if nueva_posicion[0] >= MIN_X and nueva_posicion[0] <= MAX_X and nueva_posicion[1] >= MIN_Y and nueva_posicion[1] <= MAX_Y:
+                if MIN_X <= nueva_posicion[0] <= MAX_X and MIN_Y <= nueva_posicion[1] <= MAX_Y:
                     acciones_validas.append(("moverse", nueva_posicion))
         
-        if bateria_actual - COSTO_BATERIA["sobremarcha"] > 0:
+        if bateria_actual - COSTO_BATERIA["sobremarcha"] > 0 and (carga_actual < CAP_MAX_CARGA or posicion_rover in ZONA_SOMBRA):
             for move in POSIBLES_SOBREMARCHAS:
                 nueva_posicion = (posicion_rover[0] + move[0], posicion_rover[1] + move[1])
-                if nueva_posicion[0] >= MIN_X and nueva_posicion[0] <= MAX_X and nueva_posicion[1] >= MIN_Y and nueva_posicion[1] <= MAX_Y:
+                if MIN_X <= nueva_posicion[0] <= MAX_X and MIN_Y <= nueva_posicion[1] <= MAX_Y:
                     acciones_validas.append(("sobremarcha", nueva_posicion))
         
-        if bateria_actual - COSTO_BATERIA["equipar"] > 0:
+        presencia_muestra_en_zona_sombra = False
+        for muestra in lista_muestras:
+            if muestra in ZONA_SOMBRA:
+                presencia_muestra_en_zona_sombra = True
+                break
+        
+        # Si tengo batería y estoy en una muestra o tengo batería y hay una muestra en una zona sombra, entonces puedo equipar
+        if bateria_actual - COSTO_BATERIA["equipar"] > 0 and (posicion_rover in lista_muestras or presencia_muestra_en_zona_sombra):
             for equip in POSIBLES_EQUIPACIONES:
+                # Solo equipar si no es el activo y hay muestras del tipo que saca el taladro
                 if taladro_activo != equip and CombinacionTaladroValida(equip, muestras_igneas, muestras_sedimentarias):
                     acciones_validas.append(("equipar", equip))
         
@@ -119,7 +125,7 @@ class RoverProblem(SearchProblem):
             elif taladro_activo == "percusion" and posicion_rover in muestras_sedimentarias:
                 acciones_validas.append(("recolectar", "sedimentaria"))
         
-        if bateria_actual - COSTO_BATERIA["depositar"]:
+        if bateria_actual - COSTO_BATERIA["depositar"] > 0:
             if carga_actual == CAP_MAX_CARGA:
                 acciones_validas.append(("depositar", None))
 
@@ -231,7 +237,7 @@ def planear_rover(rover_inicio, bateria_inicial, zonas_sombra, muestras_igneas, 
     estadoInicial = (rover_inicio, bateria_inicial, "ninguno", 0, tuple(muestras_igneas), tuple(muestras_sedimentarias))
     
     global ZONA_SOMBRA, MIN_X, MAX_X, MIN_Y, MAX_Y
-    ZONA_SOMBRA = zonas_sombra
+    ZONA_SOMBRA = set(zonas_sombra)
     lista_objetos = [rover_inicio] + list(zonas_sombra) + list(muestras_igneas) + list(muestras_sedimentarias)
     min_x, max_x,min_y,max_y = MinimosMaximosPorEje(lista_objetos)
     if(len(zonas_sombra) > 0):
