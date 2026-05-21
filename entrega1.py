@@ -250,5 +250,5 @@ def planear_rover(rover_inicio, bateria_inicial, zonas_sombra, muestras_igneas, 
     MIN_Y = min_y
     MAX_Y = max_y
     problema = RoverProblem(estadoInicial)
-    resultado = astar(problema)
+    resultado = astar(problema,graph_search=True)
     return [accion for accion, estado in resultado.path()[1:]]
