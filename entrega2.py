@@ -9,7 +9,6 @@ ADYACENCIAS = (
     (-1,0)
 )
 
-VARIABLES = []
 
 
 
@@ -20,28 +19,26 @@ VARIABLES = []
 
 
 def build_camp(camp_size, habs, generators, labs, deposits, airlocks, craters):
-    global VARIABLES
 
     constraints = []
-
+    variables = []
     for i in range (habs):
-        VARIABLES.append("hab" + str(i + 1))
+        variables.append("hab" + str(i + 1))
     for i in range (generators):
-        VARIABLES.append("gen" + str(i + 1))
+        variables.append("gen" + str(i + 1))
     for i in range (labs):
-        VARIABLES.append("lab" + str(i + 1))
+        variables.append("lab" + str(i + 1))
     for i in range (deposits):
-        VARIABLES.append("dep" + str(i + 1))
+        variables.append("dep" + str(i + 1))
     for i in range (airlocks):
-        VARIABLES.append("air" + str(i + 1))
+        variables.append("air" + str(i + 1))
 
     filas = camp_size[0]
     columnas = camp_size[1]
-    posibles_celdas = ((x, y) for x in range(filas) for y in range(columnas) 
-                       if (x, y) not in craters)
+    posibles_celdas = [(x, y) for x in range(filas) for y in range(columnas) if (x, y) not in craters]
 
     domains = {}
-    for var in VARIABLES:
+    for var in variables:
         domains[var] = posibles_celdas
 
     def DosModulosSinSuperposicion(var, values):
@@ -98,49 +95,49 @@ def build_camp(camp_size, habs, generators, labs, deposits, airlocks, craters):
                     return False
         return True
 
-    for i in range(len(VARIABLES)):
-        if "hab" in VARIABLES[i]:
+    for i in range(len(variables)):
+        if "hab" in variables[i]:
             # Regla 4
-            constraints.append(((VARIABLES[i], ), HabitacionInterior))
-            for j in range(len(VARIABLES)):
+            constraints.append(((variables[i], ), HabitacionInterior))
+            for j in range(len(variables)):
                 if i == j:
                     continue
-                if "gen" in VARIABLES[j]:
+                if "gen" in variables[j]:
                     # Regla 5
-                    constraints.append(((VARIABLES[i], VARIABLES[j]), SeguridadEnergeticaYAislamientoGenerador))
-        if "gen" in VARIABLES[i]:
+                    constraints.append(((variables[i], variables[j]), SeguridadEnergeticaYAislamientoGenerador))
+        if "gen" in variables[i]:
             # Se evita la duplicación de reglas, comenzando en el siguiente elemento del que se está actualmente
             # Generando solo las reglas (gen1, gen2), (gen1, gen3) y (gen2, gen3)
-            for j in range(i+1, len(VARIABLES), 1):
-                if "gen" in VARIABLES[j]:
+            for j in range(i+1, len(variables), 1):
+                if "gen" in variables[j]:
                     # Regla 6
-                    constraints.append(((VARIABLES[i], VARIABLES[j]), SeguridadEnergeticaYAislamientoGenerador))
-        if "air" in VARIABLES[i]:
+                    constraints.append(((variables[i], variables[j]), SeguridadEnergeticaYAislamientoGenerador))
+        if "air" in variables[i]:
             # Regla 3
-            constraints.append(((VARIABLES[i], ), EsclusasBordes))
+            constraints.append(((variables[i], ), EsclusasBordes))
 
-        if "lab" in VARIABLES[i]:
-            depositos = [var for var in VARIABLES if "dep" in var]
-            tupla_variables = (VARIABLES[i], *depositos)
+        if "lab" in variables[i]:
+            depositos = [var for var in variables if "dep" in var]
+            tupla_variables = (variables[i], *depositos)
             # Regla 7
             constraints.append((tupla_variables,CadenaSuministro))
             
-    for i in range(len(VARIABLES)):
+    for i in range(len(variables)):
         # Se evita que se coloque la misma variable en la regla, y se evita la duplicación de contraints por considerar A,B y B,A
-        for j in range(i+1, len(VARIABLES), 1):
+        for j in range(i+1, len(variables), 1):
             # Regla 1
-            constraints.append(((VARIABLES[i], VARIABLES[j]), DosModulosSinSuperposicion))
+            constraints.append(((variables[i], variables[j]), DosModulosSinSuperposicion))
     
     # Se quitan los generadores debido a que por la regla 5, no pueden estar adyacentes a un modulo habitacional
-    variables_sin_generadores = tuple(var for var in VARIABLES if "gen" not in var)
+    variables_sin_generadores = tuple(var for var in variables if "gen" not in var)
     # Regla 8
     constraints.append((variables_sin_generadores,RutaEvacuacion))
-    problem = CspProblem(VARIABLES, domains,constraints)
+    problem = CspProblem(variables, domains,constraints)
     solution = backtrack(problem)
     if solution is None:
         return None
     resultado = []
     for var, pos in solution.items():
-        tipo = var.rsplit("_",1)[0]
-        resultado.append((tipo,pos[0],pos[1]))
+        tipo = var[:3]
+        resultado.append((tipo, pos[0], pos[1]))
     return resultado
