@@ -92,14 +92,13 @@ class RoverProblem(SearchProblem):
         lista_muestras = list(muestras_igneas) + list(muestras_sedimentarias)
         acciones_validas = []
 
-        # Solo se puede mover si tiene batería y no lleva toda su carga, o si tiene batería y está en una zona sombra, aplica igual para sobremarcha.
-        if bateria_actual - COSTO_BATERIA["moverse"] > 0 and (carga_actual < CAP_MAX_CARGA or posicion_rover in ZONA_SOMBRA):
+        if bateria_actual - COSTO_BATERIA["moverse"] > 0:
             for move in POSIBLES_MOVIMIENTOS:
                 nueva_posicion = (posicion_rover[0] + move[0], posicion_rover[1] + move[1])
                 if MIN_X <= nueva_posicion[0] <= MAX_X and MIN_Y <= nueva_posicion[1] <= MAX_Y:
                     acciones_validas.append(("moverse", nueva_posicion))
         
-        if bateria_actual - COSTO_BATERIA["sobremarcha"] > 0 and (carga_actual < CAP_MAX_CARGA or posicion_rover in ZONA_SOMBRA):
+        if bateria_actual - COSTO_BATERIA["sobremarcha"] > 0:
             for move in POSIBLES_SOBREMARCHAS:
                 nueva_posicion = (posicion_rover[0] + move[0], posicion_rover[1] + move[1])
                 if MIN_X <= nueva_posicion[0] <= MAX_X and MIN_Y <= nueva_posicion[1] <= MAX_Y:
@@ -111,8 +110,7 @@ class RoverProblem(SearchProblem):
                 presencia_muestra_en_zona_sombra = True
                 break
         
-        # Si tengo batería y estoy en una muestra o tengo batería y hay una muestra en una zona sombra, entonces puedo equipar
-        if bateria_actual - COSTO_BATERIA["equipar"] > 0 and (posicion_rover in lista_muestras or presencia_muestra_en_zona_sombra):
+        if bateria_actual - COSTO_BATERIA["equipar"] > 0:
             for equip in POSIBLES_EQUIPACIONES:
                 # Solo equipar si no es el activo y hay muestras del tipo que saca el taladro
                 if taladro_activo != equip and CombinacionTaladroValida(equip, muestras_igneas, muestras_sedimentarias):
