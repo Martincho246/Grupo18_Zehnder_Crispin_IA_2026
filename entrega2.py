@@ -86,8 +86,6 @@ def build_camp(camp_size, habs, generators, labs, deposits, airlocks, craters):
         demas_posiciones = set(values[1:])
         for adyacencia in ADYACENCIAS:
             celda_adyacente = (posicion_habitacion[0] + adyacencia[0], posicion_habitacion[1] + adyacencia[1])
-            if not(0 <= celda_adyacente[0] < filas and 0 <= celda_adyacente[1] < columnas):
-                continue
             if celda_adyacente not in demas_posiciones and celda_adyacente not in craters:
                 return True
         return False
