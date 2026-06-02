@@ -10,32 +10,26 @@ ADYACENCIAS = (
 )
 
 
-
-
-
-
-
-
-
-
 def build_camp(camp_size, habs, generators, labs, deposits, airlocks, craters):
 
     constraints = []
     variables = []
-    for i in range (habs):
-        variables.append("hab" + str(i + 1))
+    set_craters = set(craters)
+
+    for i in range (airlocks):
+        variables.append("air" + str(i + 1))
     for i in range (generators):
         variables.append("gen" + str(i + 1))
+    for i in range (habs):
+        variables.append("hab" + str(i + 1))
     for i in range (labs):
         variables.append("lab" + str(i + 1))
     for i in range (deposits):
         variables.append("dep" + str(i + 1))
-    for i in range (airlocks):
-        variables.append("air" + str(i + 1))
 
     filas = camp_size[0]
     columnas = camp_size[1]
-    posibles_celdas = [(x, y) for x in range(filas) for y in range(columnas) if (x, y) not in craters]
+    posibles_celdas = [(x, y) for x in range(filas) for y in range(columnas) if (x, y) not in set_craters]
 
     domains = {}
     for var in variables:
@@ -61,19 +55,15 @@ def build_camp(camp_size, habs, generators, labs, deposits, airlocks, craters):
         return True
     
     def SeguridadEnergeticaYAislamientoGenerador(var, values):
-        #el primer valor representa la habitacion y el segundo el generador
-        posicion_habitacion = values[0]
-        posicion_generador = values[1]
-        for adyasencia in ADYACENCIAS:
-            celda_adyacente = (posicion_habitacion[0] + adyasencia[0], posicion_habitacion[1] + adyasencia[1]) 
-            if posicion_generador == celda_adyacente:
-                return False
-        return True
+        #el primer valor representa la habitacion y el segundo el generador; o dos generadores
+        pos1 = values[0]
+        pos2 = values[1]
+        return abs(pos1[0] - pos2[0]) + abs(pos1[1] - pos2[1]) != 1
     
     def CadenaSuministro(var, values):
         # el primer valor representa al laboratorio, el resto a los depositos
         posicion_lab = values[0]
-        posiciones_depositos = values[1:]
+        posiciones_depositos = set(values[1:])
         # por cada celda ayacente al laboratorio, pregunta si hay algun deposito ahí, retornando true si hay al menos uno
         for adyasencia in ADYACENCIAS:
             celda_adyacente = (posicion_lab[0] + adyasencia[0], posicion_lab[1] + adyasencia[1]) 
@@ -86,7 +76,7 @@ def build_camp(camp_size, habs, generators, labs, deposits, airlocks, craters):
         demas_posiciones = set(values[1:])
         for adyacencia in ADYACENCIAS:
             celda_adyacente = (posicion_habitacion[0] + adyacencia[0], posicion_habitacion[1] + adyacencia[1])
-            if celda_adyacente not in demas_posiciones and celda_adyacente not in craters:
+            if celda_adyacente not in demas_posiciones and celda_adyacente not in set_craters:
                 return True
         return False
 
