@@ -82,23 +82,24 @@ def build_camp(camp_size, habs, generators, labs, deposits, airlocks, craters):
         return False
     
     def RutaEvacuacion(var, values):
-        for i in range(len(var)):
-            if "hab" in var[i]:
-                posicion_habitacion = values[i]
-                posicion_libre = False
-                for adyacencia in ADYACENCIAS:
-                    celda_adyacente = (posicion_habitacion[0] + adyacencia[0], posicion_habitacion[1] + adyacencia[1])
-                    if celda_adyacente not in values and celda_adyacente not in craters:
-                        posicion_libre = True
-                        break
-                if posicion_libre == False:
-                    return False
-        return True
+        posicion_habitacion = values[0]
+        demas_posiciones = set(values[1:])
+        for adyacencia in ADYACENCIAS:
+            celda_adyacente = (posicion_habitacion[0] + adyacencia[0], posicion_habitacion[1] + adyacencia[1])
+            if not(0 <= celda_adyacente[0] < filas and 0 <= celda_adyacente[1] < columnas):
+                continue
+            if celda_adyacente not in demas_posiciones and celda_adyacente not in craters:
+                return True
+        return False
 
     for i in range(len(variables)):
         if "hab" in variables[i]:
             # Regla 4
             constraints.append(((variables[i], ), HabitacionInterior))
+            # Se quitan los generadores debido a que por la regla 5, no pueden estar adyacentes a un modulo habitacional
+            variables_sin_generadores = [var for var in variables if var != variables[i] and "gen" not in var]
+            # Regla 8
+            constraints.append(((variables[i], *(var for var in variables_sin_generadores)),RutaEvacuacion))
             for j in range(len(variables)):
                 if i == j:
                     continue
@@ -128,10 +129,7 @@ def build_camp(camp_size, habs, generators, labs, deposits, airlocks, craters):
             # Regla 1
             constraints.append(((variables[i], variables[j]), DosModulosSinSuperposicion))
     
-    # Se quitan los generadores debido a que por la regla 5, no pueden estar adyacentes a un modulo habitacional
-    variables_sin_generadores = tuple(var for var in variables if "gen" not in var)
-    # Regla 8
-    constraints.append((variables_sin_generadores,RutaEvacuacion))
+    
     problem = CspProblem(variables, domains,constraints)
     solution = backtrack(problem)
     if solution is None:
