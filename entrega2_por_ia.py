@@ -3,13 +3,7 @@ Entrega 2: Ares-1 — Diseño del campamento base
 CSP formulado con SimpleAI (CspProblem + backtrack).
 """
 
-from itertools import combinations
-from simpleai.search.csp import (
-    CspProblem,
-    backtrack,
-    MOST_CONSTRAINED_VARIABLE,
-    LEAST_CONSTRAINING_VALUE,
-)
+from simpleai.search import CspProblem, backtrack
 
 
 def _is_border(r, c, rows, cols):
@@ -36,7 +30,7 @@ def build_camp(camp_size, habs, generators, labs, deposits, airlocks, craters):
     if habs + generators + labs + deposits + airlocks == 0:
         return []
 
-    # Variables: una por módulo
+    # ── Variables: una por módulo ────────────────────────────────────
     variables = []
     for i in range(habs):       variables.append(f"hab_{i}")
     for i in range(generators): variables.append(f"gen_{i}")
@@ -44,15 +38,15 @@ def build_camp(camp_size, habs, generators, labs, deposits, airlocks, craters):
     for i in range(deposits):   variables.append(f"dep_{i}")
     for i in range(airlocks):   variables.append(f"air_{i}")
 
-    # Dominios
+    # ── Dominios ────────────────────────────────────────────────────
     all_free = [(r, c) for r in range(rows) for c in range(cols)
                 if (r, c) not in craters_set]
     border   = [(r, c) for (r, c) in all_free if _is_border(r, c, rows, cols)]
     interior = [(r, c) for (r, c) in all_free if not _is_border(r, c, rows, cols)]
 
-    # Poda rápida antes de construir el CSP
-    if airlocks > len(border):   return None
-    if habs > len(interior):     return None
+    # Poda rápida
+    if airlocks > len(border):  return None
+    if habs > len(interior):    return None
 
     domains = {}
     for v in variables:
@@ -64,22 +58,24 @@ def build_camp(camp_size, habs, generators, labs, deposits, airlocks, craters):
         else:
             domains[v] = list(all_free)
 
-    # Restricciones
+    # ── Restricciones ───────────────────────────────────────────────
     constraints = []
 
-    # R1: Sin superposición — todo par de variables
+    # R1: Sin superposición — un par a la vez, sin itertools
     def no_overlap(variables, values):
         return values[0] != values[1]
 
-    for v1, v2 in combinations(variables, 2):
-        constraints.append(((v1, v2), no_overlap))
+    n = len(variables)
+    for i in range(n):
+        for j in range(i + 1, n):
+            constraints.append(((variables[i], variables[j]), no_overlap))
 
-    # R3 y R4 ya están cubiertas por los dominios (border / interior).
+    # R3 y R4 cubiertas por los dominios (border / interior).
 
     # R5: Generador no adyacente a habitacional
     def gen_not_adj_hab(variables, values):
         (gr, gc), (hr, hc) = values
-        return not _adjacent(gr, gc, hr, hc)
+        return abs(gr - hr) + abs(gc - hc) != 1
 
     for i in range(generators):
         for j in range(habs):
@@ -88,18 +84,22 @@ def build_camp(camp_size, habs, generators, labs, deposits, airlocks, craters):
     # R6: Dos generadores no adyacentes entre sí
     def gens_not_adj(variables, values):
         (r1, c1), (r2, c2) = values
-        return not _adjacent(r1, c1, r2, c2)
+        return abs(r1 - r2) + abs(c1 - c2) != 1
 
-    for i, j in combinations(range(generators), 2):
-        constraints.append(((f"gen_{i}", f"gen_{j}"), gens_not_adj))
+    for i in range(generators):
+        for j in range(i + 1, generators):
+            constraints.append(((f"gen_{i}", f"gen_{j}"), gens_not_adj))
 
-    # R7: Cada laboratorio adyacente a al menos un depósito (restricción n-aria)
+    # R7: Cada laboratorio adyacente a al menos un depósito (n-aria)
     if labs > 0 and deposits > 0:
         dep_vars = tuple(f"dep_{j}" for j in range(deposits))
 
         def lab_adj_some_dep(variables, values):
             lr, lc = values[0]
-            return any(_adjacent(lr, lc, dr, dc) for (dr, dc) in values[1:])
+            for dr, dc in values[1:]:
+                if abs(lr - dr) + abs(lc - dc) == 1:
+                    return True
+            return False
 
         for i in range(labs):
             constraints.append(((f"lab_{i}",) + dep_vars, lab_adj_some_dep))
@@ -113,22 +113,19 @@ def build_camp(camp_size, habs, generators, labs, deposits, airlocks, craters):
                 def evacuation(variables, values):
                     hr, hc = values[0]
                     occupied = set(values[1:])
-                    return any(
-                        (nr, nc) not in occupied and (nr, nc) not in cs
-                        for nr, nc in _neighbors(hr, hc, rows, cols)
-                    )
+                    for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                        nr, nc = hr + dr, hc + dc
+                        if 0 <= nr < rows and 0 <= nc < cols:
+                            if (nr, nc) not in occupied and (nr, nc) not in cs:
+                                return True
+                    return False
                 return evacuation
 
             constraints.append(((f"hab_{i}",) + others, make_evac()))
 
-    # Resolver
+    # ── Resolver ────────────────────────────────────────────────────
     problem = CspProblem(variables, domains, constraints)
-    solution = backtrack(
-        problem,
-        variable_heuristic=MOST_CONSTRAINED_VARIABLE,
-        value_heuristic=LEAST_CONSTRAINING_VALUE,
-        inference=True,
-    )
+    solution = backtrack(problem, inference=True)
 
     if solution is None:
         return None
